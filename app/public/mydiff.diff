@@ -1,0 +1,2218 @@
+diff --git a/History.md b/History.md
+index b420b83..40890a9 100644
+--- a/History.md
++++ b/History.md
+@@ -1,5 +1,18 @@
+ ## v.NEXT
+ 
++## v1.1, 2015-??
++
++### Windows Support
++
++* The Meteor command line tool now officially supports Windows 7, Windows 8.1,
++  Windows Server 2008, and Windows Server 2012.
++
++* There is a native Windows installer that will be available for download from
++  <https://www.meteor.com/install> starting with this release.
++
++* In this release, Meteor on Windows supports all features available on Linux
++  and Mac except building mobile apps with PhoneGap.
++
+ ### Version Solver
+ 
+ * The code that selects compatible package versions for `meteor update`
+@@ -33,14 +46,20 @@
+ * Yield to the event loop during the flush cycle, unless we're executing a
+   synchronous `Tracker.flush()`.  #3901
+ 
++* Fix error reporting not being source-mapped properly. #3655
++
++* Introduce a new option for `Tracker.autorun` - `onError`. This callback can be
++  used to handle errors caught in the reactive computations. #3822
++
++### Blaze
++
++* Fix stack overflow from nested templates and helpers by avoiding recursion
++  during rendering.  #3028
+ 
+ ### `meteor` command-line tool
+ 
+ * Don't fail if `npm` prints more than 200K.  #3887
+ 
+-* Avoid a race condition in `meteor --test` and work with newer versions of the
+-  Velocity package.  #3957
+-
+ 
+ ### Other bug fixes and improvements
+ 
+@@ -74,7 +93,6 @@
+ * Fix regression in 1.0.4 where `meteor publish-for-arch` only worked for
+   packages without colons in their name.  #3951
+ 
+-
+ ## v1.0.4, 2015-Mar-17
+ 
+ ### Mongo Driver
+diff --git a/docs/client/data.js b/docs/client/data.js
+index a69567e..741055b 100644
+--- a/docs/client/data.js
++++ b/docs/client/data.js
+@@ -3233,7 +3233,7 @@ DocsData = {
+         }
+       },
+       {
+-        "description": "<p>Optional callback. Called with no arguments on success, or with a single <code>Error</code> argument on failure.</p>",
++        "description": "<p>Optional callback. Called with no arguments on success, or with a single <code>Error</code> argument on failure. The callback cannot be called if you are using the &quot;redirect&quot; <code>loginStyle</code>, because the app will have reloaded in the meantime; try using <a href=\"#accounts_onlogin\">client-side login hooks</a> instead.</p>",
+         "name": "callback",
+         "optional": true,
+         "type": {
+@@ -5749,16 +5749,35 @@ DocsData = {
+     "longname": "Tracker.autorun",
+     "memberof": "Tracker",
+     "name": "autorun",
+-    "options": [],
++    "options": [
++      {
++        "description": "<p>Optional. The function to run when an error\nhappens in the Computation. The only argument it recieves is the Error\nthrown. Defaults to the error being logged to the console.</p>",
++        "name": "onError",
++        "type": {
++          "names": [
++            "function"
++          ]
++        }
++      }
++    ],
+     "params": [
+       {
+-        "description": "<p>The function to run. It receives one argument: the Computation object that will be returned.</p>",
++        "description": "<p>The function to run. It receives\none argument: the Computation object that will be returned.</p>",
+         "name": "runFunc",
+         "type": {
+           "names": [
+             "Tracker.ComputationFunction"
+           ]
+         }
++      },
++      {
++        "name": "options",
++        "optional": true,
++        "type": {
++          "names": [
++            "Object"
++          ]
++        }
+       }
+     ],
+     "returns": [
+@@ -5771,7 +5790,7 @@ DocsData = {
+       }
+     ],
+     "scope": "static",
+-    "summary": "Run a function now and rerun it later whenever its dependencies change. Returns a Computation object that can be used to stop or observe the rerunning."
++    "summary": "Run a function now and rerun it later whenever its dependencies\nchange. Returns a Computation object that can be used to stop or observe the\nrerunning."
+   },
+   "Tracker.currentComputation": {
+     "kind": "member",
+diff --git a/meteor b/meteor
+index 9c7fbc6..a72925e 100755
+--- a/meteor
++++ b/meteor
+@@ -1,7 +1,6 @@
+ #!/bin/bash
+ 
+-# version 0.4.18 in use in branch release-1.1
+-BUNDLE_VERSION=0.4.17
++BUNDLE_VERSION=0.4.18
+ 
+ # OS Check. Put here because here is where we download the precompiled
+ # bundles that are arch specific.
+@@ -61,6 +60,7 @@ function install_dev_bundle {
+     rm -rf "$BUNDLE_TMPDIR"
+     mkdir "$BUNDLE_TMPDIR"
+ 
++    # duplicated in scripts/windows/download-dev-bundle.ps1:
+     DEV_BUNDLE_URL_ROOT="https://d3sqy0vbqsdhku.cloudfront.net/"
+     # If you set $USE_TEST_DEV_BUNDLE_SERVER then we will download
+     # dev bundles copied by copy-dev-bundle-from-jenkins.sh without --prod.
+diff --git a/meteor.bat b/meteor.bat
+index 451792a..7d94788 100644
+--- a/meteor.bat
++++ b/meteor.bat
+@@ -40,3 +40,5 @@ SET NODE_PATH=%~dp0\dev_bundle\lib\node_modules
+ "%~dp0\dev_bundle\bin\node.exe" "%~dp0\tools\main.js" %*
+ ENDLOCAL
+ 
++EXIT /b %ERRORLEVEL%
++
+diff --git a/packages/accounts-oauth/package.js b/packages/accounts-oauth/package.js
+index c5f4591..7944bf6 100644
+--- a/packages/accounts-oauth/package.js
++++ b/packages/accounts-oauth/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Common code for OAuth-based login services",
+-  version: "1.1.4"
++  version: "1.1.5-pre.win.1"
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/accounts-password/package.js b/packages/accounts-password/package.js
+index 2432fc1..0a7a614 100644
+--- a/packages/accounts-password/package.js
++++ b/packages/accounts-password/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Password support for accounts",
+-  version: "1.1.0"
++  version: "1.1.1-rc.0"
+ });
+ 
+ Package.onUse(function(api) {
+diff --git a/packages/autoupdate/package.js b/packages/autoupdate/package.js
+index cd5c0fe..1662643 100644
+--- a/packages/autoupdate/package.js
++++ b/packages/autoupdate/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Update the client when new client code is available",
+-  version: '1.2.0'
++  version: '1.2.1-rc.0'
+ });
+ 
+ Cordova.depends({
+diff --git a/packages/blaze/materializer.js b/packages/blaze/materializer.js
+index 5b77e00..a28c5c2 100644
+--- a/packages/blaze/materializer.js
++++ b/packages/blaze/materializer.js
+@@ -1,128 +1,172 @@
+-// new Blaze._DOMMaterializer(options)
++// Turns HTMLjs into DOM nodes and DOMRanges.
+ //
+-// An HTML.Visitor that turns HTMLjs into DOM nodes and DOMRanges.
++// - `htmljs`: the value to materialize, which may be any of the htmljs
++//   types (Tag, CharRef, Comment, Raw, array, string, boolean, number,
++//   null, or undefined) or a View or Template (which will be used to
++//   construct a View).
++// - `intoArray`: the array of DOM nodes and DOMRanges to push the output
++//   into (required)
++// - `parentView`: the View we are materializing content for (optional)
+ //
+-// Options: `parentView`
+-Blaze._DOMMaterializer = HTML.Visitor.extend();
+-Blaze._DOMMaterializer.def({
+-  visitNull: function (x, intoArray) {
+-    return intoArray;
+-  },
+-  visitPrimitive: function (primitive, intoArray) {
+-    var string = String(primitive);
+-    intoArray.push(document.createTextNode(string));
+-    return intoArray;
+-  },
+-  visitCharRef: function (charRef, intoArray) {
+-    return this.visitPrimitive(charRef.str, intoArray);
+-  },
+-  visitArray: function (array, intoArray) {
+-    for (var i = 0; i < array.length; i++)
+-      this.visit(array[i], intoArray);
+-    return intoArray;
+-  },
+-  visitComment: function (comment, intoArray) {
+-    intoArray.push(document.createComment(comment.sanitizedValue));
+-    return intoArray;
+-  },
+-  visitRaw: function (raw, intoArray) {
+-    // Get an array of DOM nodes by using the browser's HTML parser
+-    // (like innerHTML).
+-    var nodes = Blaze._DOMBackend.parseHTML(raw.value);
+-    for (var i = 0; i < nodes.length; i++)
+-      intoArray.push(nodes[i]);
++// Returns `intoArray`, which is especially useful if you pass in `[]`.
++Blaze._materializeDOM = function (htmljs, intoArray, parentView) {
++  // In order to use fewer stack frames, materializeDOMInner can push
++  // tasks onto `workStack`, and they will be popped off
++  // and run, last first, after materializeDOMInner returns.  The
++  // reason we use a stack instead of a queue is so that we recurse
++  // depth-first, doing newer tasks first.
++  var workStack = [];
++  materializeDOMInner(htmljs, intoArray, parentView, workStack);
+ 
+-    return intoArray;
+-  },
+-  visitTag: function (tag, intoArray) {
+-    var self = this;
+-    var tagName = tag.tagName;
+-    var elem;
+-    if ((HTML.isKnownSVGElement(tagName) || isSVGAnchor(tag))
+-        && document.createElementNS) {
+-      // inline SVG
+-      elem = document.createElementNS('http://www.w3.org/2000/svg', tagName);
++  // A "task" is either an array of arguments to materializeDOM or
++  // a function to execute.  If we only allowed functions as tasks,
++  // we would have to generate the functions using _.bind or close
++  // over a loop variable, either of which is a little less efficient.
++  while (workStack.length) {
++    // Note that running the workStack task may push new items onto
++    // the workStack.
++    var task = workStack.pop();
++    if (typeof task === 'function') {
++      task();
+     } else {
+-      // normal elements
+-      elem = document.createElement(tagName);
++      // assume array
++      materializeDOMInner(task[0], task[1], task[2], workStack);
+     }
++  }
+ 
+-    var rawAttrs = tag.attrs;
+-    var children = tag.children;
+-    if (tagName === 'textarea' && tag.children.length &&
+-        ! (rawAttrs && ('value' in rawAttrs))) {
+-      // Provide very limited support for TEXTAREA tags with children
+-      // rather than a "value" attribute.
+-      // Reactivity in the form of Views nested in the tag's children
+-      // won't work.  Compilers should compile textarea contents into
+-      // the "value" attribute of the tag, wrapped in a function if there
+-      // is reactivity.
+-      if (typeof rawAttrs === 'function' ||
+-          HTML.isArray(rawAttrs)) {
+-        throw new Error("Can't have reactive children of TEXTAREA node; " +
+-                        "use the 'value' attribute instead.");
+-      }
+-      rawAttrs = _.extend({}, rawAttrs || null);
+-      rawAttrs.value = Blaze._expand(children, self.parentView);
+-      children = [];
+-    }
++  return intoArray;
++};
+ 
+-    if (rawAttrs) {
+-      var attrUpdater = new ElementAttributesUpdater(elem);
+-      var updateAttributes = function () {
+-        var parentView = self.parentView;
+-        var expandedAttrs = Blaze._expandAttributes(rawAttrs, parentView);
+-        var flattenedAttrs = HTML.flattenAttributes(expandedAttrs);
+-        var stringAttrs = {};
+-        for (var attrName in flattenedAttrs) {
+-          stringAttrs[attrName] = Blaze._toText(flattenedAttrs[attrName],
+-                                                parentView,
+-                                                HTML.TEXTMODE.STRING);
+-        }
+-        attrUpdater.update(stringAttrs);
+-      };
+-      var updaterComputation;
+-      if (self.parentView) {
+-        updaterComputation =
+-          self.parentView.autorun(updateAttributes, undefined, 'updater');
+-      } else {
+-        updaterComputation = Tracker.nonreactive(function () {
+-          return Tracker.autorun(function () {
+-            Tracker._withCurrentView(self.parentView, updateAttributes);
+-          });
+-        });
++var materializeDOMInner = function (htmljs, intoArray, parentView, workStack) {
++  if (htmljs == null) {
++    // null or undefined
++    return;
++  }
++
++  switch (typeof htmljs) {
++  case 'string': case 'boolean': case 'number':
++    intoArray.push(document.createTextNode(String(htmljs)));
++    return;
++  case 'object':
++    if (htmljs.htmljsType) {
++      switch (htmljs.htmljsType) {
++      case HTML.Tag.htmljsType:
++        intoArray.push(materializeTag(htmljs, parentView, workStack));
++        return;
++      case HTML.CharRef.htmljsType:
++        intoArray.push(document.createTextNode(htmljs.str));
++        return;
++      case HTML.Comment.htmljsType:
++        intoArray.push(document.createComment(htmljs.sanitizedValue));
++        return;
++      case HTML.Raw.htmljsType:
++        // Get an array of DOM nodes by using the browser's HTML parser
++        // (like innerHTML).
++        var nodes = Blaze._DOMBackend.parseHTML(htmljs.value);
++        for (var i = 0; i < nodes.length; i++)
++          intoArray.push(nodes[i]);
++        return;
++      }
++    } else if (HTML.isArray(htmljs)) {
++      for (var i = htmljs.length-1; i >= 0; i--) {
++        workStack.push([htmljs[i], intoArray, parentView]);
++      }
++      return;
++    } else {
++      if (htmljs instanceof Blaze.Template) {
++        htmljs = htmljs.constructView();
++        // fall through to Blaze.View case below
++      }
++      if (htmljs instanceof Blaze.View) {
++        Blaze._materializeView(htmljs, parentView, workStack, intoArray);
++        return;
+       }
+-      Blaze._DOMBackend.Teardown.onElementTeardown(elem, function attrTeardown() {
+-        updaterComputation.stop();
+-      });
+     }
++  }
+ 
+-    var childNodesAndRanges = self.visit(children, []);
+-    for (var i = 0; i < childNodesAndRanges.length; i++) {
+-      var x = childNodesAndRanges[i];
+-      if (x instanceof Blaze._DOMRange)
+-        x.attach(elem);
+-      else
+-        elem.appendChild(x);
+-    }
++  throw new Error("Unexpected object in htmljs: " + htmljs);
++};
+ 
+-    intoArray.push(elem);
++var materializeTag = function (tag, parentView, workStack) {
++  var tagName = tag.tagName;
++  var elem;
++  if ((HTML.isKnownSVGElement(tagName) || isSVGAnchor(tag))
++      && document.createElementNS) {
++    // inline SVG
++    elem = document.createElementNS('http://www.w3.org/2000/svg', tagName);
++  } else {
++    // normal elements
++    elem = document.createElement(tagName);
++  }
+ 
+-    return intoArray;
+-  },
+-  visitObject: function (x, intoArray) {
+-    if (x instanceof Blaze.Template)
+-      x = x.constructView();
++  var rawAttrs = tag.attrs;
++  var children = tag.children;
++  if (tagName === 'textarea' && tag.children.length &&
++      ! (rawAttrs && ('value' in rawAttrs))) {
++    // Provide very limited support for TEXTAREA tags with children
++    // rather than a "value" attribute.
++    // Reactivity in the form of Views nested in the tag's children
++    // won't work.  Compilers should compile textarea contents into
++    // the "value" attribute of the tag, wrapped in a function if there
++    // is reactivity.
++    if (typeof rawAttrs === 'function' ||
++        HTML.isArray(rawAttrs)) {
++      throw new Error("Can't have reactive children of TEXTAREA node; " +
++                      "use the 'value' attribute instead.");
++    }
++    rawAttrs = _.extend({}, rawAttrs || null);
++    rawAttrs.value = Blaze._expand(children, parentView);
++    children = [];
++  }
+ 
+-    if (x instanceof Blaze.View) {
+-      intoArray.push(Blaze._materializeView(x, this.parentView));
+-      return intoArray;
++  if (rawAttrs) {
++    var attrUpdater = new ElementAttributesUpdater(elem);
++    var updateAttributes = function () {
++      var expandedAttrs = Blaze._expandAttributes(rawAttrs, parentView);
++      var flattenedAttrs = HTML.flattenAttributes(expandedAttrs);
++      var stringAttrs = {};
++      for (var attrName in flattenedAttrs) {
++        stringAttrs[attrName] = Blaze._toText(flattenedAttrs[attrName],
++                                              parentView,
++                                              HTML.TEXTMODE.STRING);
++      }
++      attrUpdater.update(stringAttrs);
++    };
++    var updaterComputation;
++    if (parentView) {
++      updaterComputation =
++        parentView.autorun(updateAttributes, undefined, 'updater');
++    } else {
++      updaterComputation = Tracker.nonreactive(function () {
++        return Tracker.autorun(function () {
++          Tracker._withCurrentView(parentView, updateAttributes);
++        });
++      });
+     }
++    Blaze._DOMBackend.Teardown.onElementTeardown(elem, function attrTeardown() {
++      updaterComputation.stop();
++    });
++  }
+ 
+-    // throw the default error
+-    return HTML.Visitor.prototype.visitObject.call(this, x);
++  if (children.length) {
++    var childNodesAndRanges = [];
++    // push this function first so that it's done last
++    workStack.push(function () {
++      for (var i = 0; i < childNodesAndRanges.length; i++) {
++        var x = childNodesAndRanges[i];
++        if (x instanceof Blaze._DOMRange)
++          x.attach(elem);
++        else
++          elem.appendChild(x);
++      }
++    });
++    // now push the task that calculates childNodesAndRanges
++    workStack.push([children, childNodesAndRanges, parentView]);
+   }
+-});
++
++  return elem;
++};
++
+ 
+ var isSVGAnchor = function (node) {
+   // We generally aren't able to detect SVG <a> elements because
+diff --git a/packages/blaze/package.js b/packages/blaze/package.js
+index bce54b6..e8a463c 100644
+--- a/packages/blaze/package.js
++++ b/packages/blaze/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Meteor Reactive Templating library",
+-  version: '2.1.0'
++  version: '2.1.1-pre.win.2'
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/blaze/view.js b/packages/blaze/view.js
+index 05a1389..b5c105c 100644
+--- a/packages/blaze/view.js
++++ b/packages/blaze/view.js
+@@ -281,7 +281,46 @@ Blaze._createView = function (view, parentView, forExpansion) {
+   Blaze._fireCallbacks(view, 'created');
+ };
+ 
+-Blaze._materializeView = function (view, parentView) {
++var doFirstRender = function (view, initialContent) {
++  var domrange = new Blaze._DOMRange(initialContent);
++  view._domrange = domrange;
++  domrange.view = view;
++  view.isRendered = true;
++  Blaze._fireCallbacks(view, 'rendered');
++
++  var teardownHook = null;
++
++  domrange.onAttached(function attached(range, element) {
++    view._isAttached = true;
++
++    teardownHook = Blaze._DOMBackend.Teardown.onElementTeardown(
++      element, function teardown() {
++        Blaze._destroyView(view, true /* _skipNodes */);
++      });
++  });
++
++  // tear down the teardown hook
++  view.onViewDestroyed(function () {
++    teardownHook && teardownHook.stop();
++    teardownHook = null;
++  });
++
++  return domrange;
++};
++
++// Take an uncreated View `view` and create and render it to DOM,
++// setting up the autorun that updates the View.  Returns a new
++// DOMRange, which has been associated with the View.
++//
++// The private arguments `_workStack` and `_intoArray` are passed in
++// by Blaze._materializeDOM.  If provided, then we avoid the mutual
++// recursion of calling back into Blaze._materializeDOM so that deep
++// View hierarchies don't blow the stack.  Instead, we push tasks onto
++// workStack for the initial rendering and subsequent setup of the
++// View, and they are done after we return.  When there is a
++// _workStack, we do not return the new DOMRange, but instead push it
++// into _intoArray from a _workStack task.
++Blaze._materializeView = function (view, parentView, _workStack, _intoArray) {
+   Blaze._createView(view, parentView);
+ 
+   var domrange;
+@@ -298,21 +337,16 @@ Blaze._materializeView = function (view, parentView) {
+       var htmljs = view._render();
+       view._isInRender = false;
+ 
+-      Tracker.nonreactive(function doMaterialize() {
+-        var materializer = new Blaze._DOMMaterializer({parentView: view});
+-        var rangesAndNodes = materializer.visit(htmljs, []);
+-        if (c.firstRun || ! Blaze._isContentEqual(lastHtmljs, htmljs)) {
+-          if (c.firstRun) {
+-            domrange = new Blaze._DOMRange(rangesAndNodes);
+-            view._domrange = domrange;
+-            domrange.view = view;
+-            view.isRendered = true;
+-          } else {
++      if (! c.firstRun) {
++        Tracker.nonreactive(function doMaterialize() {
++          // re-render
++          var rangesAndNodes = Blaze._materializeDOM(htmljs, [], view);
++          if (! Blaze._isContentEqual(lastHtmljs, htmljs)) {
+             domrange.setMembers(rangesAndNodes);
++            Blaze._fireCallbacks(view, 'rendered');
+           }
+-          Blaze._fireCallbacks(view, 'rendered');
+-        }
+-      });
++        });
++      }
+       lastHtmljs = htmljs;
+ 
+       // Causes any nested views to stop immediately, not when we call
+@@ -324,25 +358,37 @@ Blaze._materializeView = function (view, parentView) {
+       });
+     }, undefined, 'materialize');
+ 
+-    var teardownHook = null;
+-
+-    domrange.onAttached(function attached(range, element) {
+-      view._isAttached = true;
+-
+-      teardownHook = Blaze._DOMBackend.Teardown.onElementTeardown(
+-        element, function teardown() {
+-          Blaze._destroyView(view, true /* _skipNodes */);
+-        });
+-    });
+-
+-    // tear down the teardown hook
+-    view.onViewDestroyed(function () {
+-      teardownHook && teardownHook.stop();
+-      teardownHook = null;
+-    });
++    // first render.  lastHtmljs is the first htmljs.
++    var initialContents;
++    if (! _workStack) {
++      initialContents = Blaze._materializeDOM(lastHtmljs, [], view);
++      domrange = doFirstRender(view, initialContents);
++      initialContents = null; // help GC because we close over this scope a lot
++    } else {
++      // We're being called from Blaze._materializeDOM, so to avoid
++      // recursion and save stack space, provide a description of the
++      // work to be done instead of doing it.  Tasks pushed onto
++      // _workStack will be done in LIFO order after we return.
++      // The work will still be done within a Tracker.nonreactive,
++      // because it will be done by some call to Blaze._materializeDOM
++      // (which is always called in a Tracker.nonreactive).
++      initialContents = [];
++      // push this function first so that it happens last
++      _workStack.push(function () {
++        domrange = doFirstRender(view, initialContents);
++        initialContents = null; // help GC because of all the closures here
++        _intoArray.push(domrange);
++      });
++      // now push the task that calculates initialContents
++      _workStack.push([lastHtmljs, initialContents, view]);
++    }
+   });
+ 
+-  return domrange;
++  if (! _workStack) {
++    return domrange;
++  } else {
++    return null;
++  }
+ };
+ 
+ // Expands a View to HTMLjs, calling `render` recursively on all
+diff --git a/packages/constraint-solver/package.js b/packages/constraint-solver/package.js
+index 49125fe..d274c83 100644
+--- a/packages/constraint-solver/package.js
++++ b/packages/constraint-solver/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Given the set of the constraints, picks a satisfying configuration",
+-  version: "1.0.18"
++  version: "1.0.19-rc.1"
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/less/package.js b/packages/less/package.js
+index aa5dd04..d9ef2be 100644
+--- a/packages/less/package.js
++++ b/packages/less/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "The dynamic stylesheet language",
+-  version: "1.0.13"
++  version: "1.0.14-rc.1"
+ });
+ 
+ Package.registerBuildPlugin({
+diff --git a/packages/logic-solver/package.js b/packages/logic-solver/package.js
+index 58c488c..5ae8fa6 100644
+--- a/packages/logic-solver/package.js
++++ b/packages/logic-solver/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "General satisfiability solver for logic problems",
+-  version: '1.0.0-vs.3'
++  version: '1.0.1-pre.win.1'
+ });
+ 
+ Package.on_use(function (api) {
+diff --git a/packages/meteor-tool/package.js b/packages/meteor-tool/package.js
+index 2990051..bfac886 100644
+--- a/packages/meteor-tool/package.js
++++ b/packages/meteor-tool/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "The Meteor command-line tool",
+-  version: '1.0.45'
++  version: '1.1.1-win.9'
+ });
+ 
+ Package.includeTool();
+diff --git a/packages/meteor/debug.js b/packages/meteor/debug.js
+index a6f20d5..88bfa8d 100644
+--- a/packages/meteor/debug.js
++++ b/packages/meteor/debug.js
+@@ -60,3 +60,8 @@ Meteor._debug = function (/* arguments */) {
+ Meteor._suppress_log = function (count) {
+   suppress += count;
+ };
++
++Meteor._supressed_log_expected = function () {
++  return suppress !== 0;
++};
++
+diff --git a/packages/meteor/package.js b/packages/meteor/package.js
+index 3f9a27f..4002e45 100644
+--- a/packages/meteor/package.js
++++ b/packages/meteor/package.js
+@@ -2,7 +2,7 @@
+ 
+ Package.describe({
+   summary: "Core Meteor environment",
+-  version: '1.1.5'
++  version: '1.1.6-rc.0'
+ });
+ 
+ Package.registerBuildPlugin({
+diff --git a/packages/minifiers/package.js b/packages/minifiers/package.js
+index 6172ab5..24e1cd7 100644
+--- a/packages/minifiers/package.js
++++ b/packages/minifiers/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "JavaScript and CSS minifiers",
+-  version: "1.1.4"
++  version: "1.1.5-rc.1"
+ });
+ 
+ Npm.depends({
+@@ -12,7 +12,7 @@ Npm.depends({
+ Npm.strip({
+   "uglify-js": ["test/"],
+   "css-parse": ["test/"],
+-  "css-stringify": ["test/"],
++  "css-stringify": ["test/"]
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/minimongo/package.js b/packages/minimongo/package.js
+index b7929b5..03c1c82 100644
+--- a/packages/minimongo/package.js
++++ b/packages/minimongo/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Meteor's client-side datastore: a port of MongoDB to Javascript",
+-  version: '1.0.7'
++  version: '1.0.8-pre.win.1'
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/non-core/npm-node-aes-gcm/.versions b/packages/non-core/npm-node-aes-gcm/.versions
+index 6c58648..8b99248 100644
+--- a/packages/non-core/npm-node-aes-gcm/.versions
++++ b/packages/non-core/npm-node-aes-gcm/.versions
+@@ -1,3 +1,3 @@
+-meteor@1.1.4
+-npm-node-aes-gcm@0.1.3_1
+-underscore@1.0.2
++meteor@1.1.5-rc.0
++npm-node-aes-gcm@0.1.3_5
++underscore@1.0.3-rc.0
+diff --git a/packages/non-core/npm-node-aes-gcm/package.js b/packages/non-core/npm-node-aes-gcm/package.js
+index 8a5fa20..243375c 100644
+--- a/packages/non-core/npm-node-aes-gcm/package.js
++++ b/packages/non-core/npm-node-aes-gcm/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Wrapper around the node-aes-gcm npm package",
+-  version: '0.1.3_1',
++  version: '0.1.3_5',
+   documentation: null
+ });
+ 
+diff --git a/packages/oauth-encryption/package.js b/packages/oauth-encryption/package.js
+index 2be41bd..971ff80 100644
+--- a/packages/oauth-encryption/package.js
++++ b/packages/oauth-encryption/package.js
+@@ -1,10 +1,10 @@
+ Package.describe({
+   summary: "Encrypt account secrets stored in the database",
+-  version: '1.0.3'
++  version: '1.0.5-pre.win.1'
+ });
+ 
+ Package.onUse(function (api) {
+-  api.use("npm-node-aes-gcm@=0.1.3_1");
++  api.use("npm-node-aes-gcm@=0.1.3_5");
+ 
+   api.export("OAuthEncryption", ["server"]);
+   api.use("underscore");
+diff --git a/packages/observe-sequence/package.js b/packages/observe-sequence/package.js
+index c7a1301..c3ebed9 100644
+--- a/packages/observe-sequence/package.js
++++ b/packages/observe-sequence/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Observe changes to various sequence types such as arrays, cursors and objects",
+-  version: "1.0.5"
++  version: "1.0.6-pre.win.1"
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/package-version-parser/package-version-parser.js b/packages/package-version-parser/package-version-parser.js
+index 523deee..4409751 100644
+--- a/packages/package-version-parser/package-version-parser.js
++++ b/packages/package-version-parser/package-version-parser.js
+@@ -396,6 +396,7 @@ PV.validatePackageName = function (packageName, options) {
+     throwVersionParserError("Package name may not end with a dot: "
+                             + JSON.stringify(packageName));
+   }
++
+   if (packageName.slice(-1) === '.') {
+     throwVersionParserError("Package names may not end with a dot: " +
+                             JSON.stringify(packageName));
+diff --git a/packages/package-version-parser/package.js b/packages/package-version-parser/package.js
+index 84cdcc2..dbc804f 100644
+--- a/packages/package-version-parser/package.js
++++ b/packages/package-version-parser/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Parses Meteor Smart Package version strings",
+-  version: "3.0.2"
++  version: "3.0.3-rc.1"
+ });
+ 
+ Package.onUse(function (api) {
+diff --git a/packages/templating/package.js b/packages/templating/package.js
+index a3e5e0c..2074cbf 100644
+--- a/packages/templating/package.js
++++ b/packages/templating/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Allows templates to be defined in .html files",
+-  version: '1.1.0'
++  version: '1.1.1-rc.2'
+ });
+ 
+ // Today, this package is closely intertwined with Handlebars, meaning
+@@ -48,6 +48,7 @@ Package.onTest(function (api) {
+   api.use(['test-helpers', 'session', 'tracker',
+            'minimongo'], 'client');
+   api.use('spacebars-compiler');
++  api.use('minifiers'); // ensure compiler output is beautified
+ 
+   api.addFiles([
+     'plugin/html_scanner.js',
+diff --git a/packages/tracker/package.js b/packages/tracker/package.js
+index 4d635ad..b3e4c0e 100644
+--- a/packages/tracker/package.js
++++ b/packages/tracker/package.js
+@@ -1,6 +1,6 @@
+ Package.describe({
+   summary: "Dependency tracker to allow reactive callbacks",
+-  version: '1.0.6'
++  version: '1.0.7-pre.win.2'
+ });
+ 
+ Package.onUse(function (api) {
+@@ -12,6 +12,7 @@ Package.onUse(function (api) {
+ 
+ Package.onTest(function (api) {
+   api.use('tinytest');
++  api.use('test-helpers');
+   api.use('tracker');
+   api.addFiles('tracker_tests.js', 'client');
+ });
+diff --git a/packages/tracker/tracker.js b/packages/tracker/tracker.js
+index 1460e1f..51217ca 100644
+--- a/packages/tracker/tracker.js
++++ b/packages/tracker/tracker.js
+@@ -45,28 +45,42 @@ var _debugFunc = function () {
+   //
+   // Lazy evaluation because `Meteor` does not exist right away.(??)
+   return (typeof Meteor !== "undefined" ? Meteor._debug :
+-          ((typeof console !== "undefined") && console.log ?
+-           function () { console.log.apply(console, arguments); } :
++          ((typeof console !== "undefined") && console.error ?
++           function () { console.error.apply(console, arguments); } :
+            function () {}));
+ };
+ 
++var _maybeSupressMoreLogs = function (messagesLength) {
++  // Sometimes when running tests, we intentionally supress logs on expected
++  // printed errors. Since the current implementation of _throwOrLog can log
++  // multiple separate log messages, supress all of them if at least one supress
++  // is expected as we still want them to count as one.
++  if (typeof Meteor !== "undefined") {
++    if (Meteor._supressed_log_expected()) {
++      Meteor._suppress_log(messagesLength - 1);
++    }
++  }
++};
++
+ var _throwOrLog = function (from, e) {
+   if (throwFirstError) {
+     throw e;
+   } else {
+-    var messageAndStack;
+-    if (e.stack && e.message) {
++    var printArgs = ["Exception from Tracker " + from + " function:"];
++    if (e.stack && e.message && e.name) {
+       var idx = e.stack.indexOf(e.message);
+-      if (idx >= 0 && idx <= 10) // allow for "Error: " (at least 7)
+-        messageAndStack = e.stack; // message is part of e.stack, as in Chrome
+-      else
+-        messageAndStack = e.message +
+-        (e.stack.charAt(0) === '\n' ? '' : '\n') + e.stack; // e.g. Safari
+-    } else {
+-      messageAndStack = e.stack || e.message;
++      if (idx < 0 || idx > e.name.length + 2) { // check for "Error: "
++        // message is not part of the stack
++        var message = e.name + ": " + e.message;
++        printArgs.push(message);
++      }
++    }
++    printArgs.push(e.stack);
++    _maybeSupressMoreLogs(printArgs.length);
++
++    for (var i = 0; i < printArgs.length; i++) {
++      _debugFunc()(printArgs[i]);
+     }
+-    _debugFunc()("Exception from Tracker " + from + " function:",
+-                 messageAndStack);
+   }
+ };
+ 
+@@ -136,7 +150,7 @@ var constructingComputation = false;
+  * computation.
+  * @instancename computation
+  */
+-Tracker.Computation = function (f, parent) {
++Tracker.Computation = function (f, parent, onError) {
+   if (! constructingComputation)
+     throw new Error(
+       "Tracker.Computation constructor is private; use Tracker.autorun");
+@@ -185,6 +199,7 @@ Tracker.Computation = function (f, parent) {
+   // to constrain the order that computations are processed
+   self._parent = parent;
+   self._func = f;
++  self._onError = onError;
+   self._recomputing = false;
+ 
+   // Register the computation within the global Tracker.
+@@ -297,7 +312,11 @@ Tracker.Computation.prototype._recompute = function () {
+       try {
+         self._compute();
+       } catch (e) {
+-        _throwOrLog("recompute", e);
++        if (self._onError) {
++          self._onError(e);
++        } else {
++          _throwOrLog("recompute", e);
++        }
+       }
+     }
+   } finally {
+@@ -492,17 +511,27 @@ Tracker._runFlush = function (options) {
+  * @param {Tracker.Computation}
+  */
+ /**
+- * @summary Run a function now and rerun it later whenever its dependencies change. Returns a Computation object that can be used to stop or observe the rerunning.
++ * @summary Run a function now and rerun it later whenever its dependencies
++ * change. Returns a Computation object that can be used to stop or observe the
++ * rerunning.
+  * @locus Client
+- * @param {Tracker.ComputationFunction} runFunc The function to run. It receives one argument: the Computation object that will be returned.
++ * @param {Tracker.ComputationFunction} runFunc The function to run. It receives
++ * one argument: the Computation object that will be returned.
++ * @param {Object} [options]
++ * @param {Function} options.onError Optional. The function to run when an error
++ * happens in the Computation. The only argument it recieves is the Error
++ * thrown. Defaults to the error being logged to the console.
+  * @returns {Tracker.Computation}
+  */
+-Tracker.autorun = function (f) {
++Tracker.autorun = function (f, options) {
+   if (typeof f !== 'function')
+     throw new Error('Tracker.autorun requires a function argument');
+ 
++  options = options || {};
++
+   constructingComputation = true;
+-  var c = new Tracker.Computation(f, Tracker.currentComputation);
++  var c = new Tracker.Computation(
++    f, Tracker.currentComputation, options.onError);
+ 
+   if (Tracker.active)
+     Tracker.onInvalidate(function () {
+diff --git a/packages/tracker/tracker_tests.js b/packages/tracker/tracker_tests.js
+index ef9c1f5..72bedae 100644
+--- a/packages/tracker/tracker_tests.js
++++ b/packages/tracker/tracker_tests.js
+@@ -469,3 +469,21 @@ Tinytest.add('tracker - Tracker.flush finishes', function (test) {
+   Tracker.flush();
+   test.equal(n, 2000);
+ });
++
++testAsyncMulti('tracker - Tracker.autorun, onError option', [function (test, expect) {
++  var d = new Tracker.Dependency;
++  var c = Tracker.autorun(function (c) {
++    d.depend();
++
++    if (! c.firstRun)
++      throw new Error("foo");
++  }, {
++    onError: expect(function (err) {
++      test.equal(err.message, "foo");
++    })
++  });
++
++  d.changed();
++  Tracker.flush();
++}]);
++
+diff --git a/scripts/admin/copy-bootstrap-tarballs-from-jenkins.sh b/scripts/admin/copy-bootstrap-tarballs-from-jenkins.sh
+index 3996134..afdf55c 100755
+--- a/scripts/admin/copy-bootstrap-tarballs-from-jenkins.sh
++++ b/scripts/admin/copy-bootstrap-tarballs-from-jenkins.sh
+@@ -18,7 +18,7 @@ if [ $# -ne 1 ]; then
+ fi
+ 
+ # bootstrap-tarballs--${METEOR_RELEASE}--${BUILD_ID}--${BUILD_NUMBER}--${GIT_COMMIT}
+-DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!(bootstrap-tarballs--.+--.+--'$1'--.+)/!')
++DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!/(bootstrap-tarballs--.+--.+--'$1'--.+)/!')
+ RELEASE=$(echo $DIRNAME | perl -pe 's/^bootstrap-tarballs--(.+)--.+--.+--.+$/$1/')
+ 
+ if [ -z "$DIRNAME" ]; then
+diff --git a/scripts/admin/copy-dev-bundle-from-jenkins.sh b/scripts/admin/copy-dev-bundle-from-jenkins.sh
+index 2ff3dd9..61c4a8c 100755
+--- a/scripts/admin/copy-dev-bundle-from-jenkins.sh
++++ b/scripts/admin/copy-dev-bundle-from-jenkins.sh
+@@ -10,11 +10,9 @@ set -u
+ 
+ cd "`dirname "$0"`"
+ 
+-arg=$1
+-
+ TARGET="s3://com.meteor.static/test/"
+ TEST=no
+-if [ $# -ge 1 -a ${arg} = '--prod' ]; then
++if [ $# -ge 1 -a $1 = '--prod' ]; then
+     shift
+     TARGET="s3://com.meteor.static/"
+ else
+@@ -26,7 +24,7 @@ if [ $# -ne 1 ]; then
+     exit 1
+ fi
+ 
+-DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!(dev-bundle-.+--'${arg}'--.+)/!')
++DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!/(dev-bundle-.+--'$1'--.+)/!')
+ 
+ if [ -z "$DIRNAME" ]; then
+     echo "build not found" 1>&2
+diff --git a/scripts/admin/copy-windows-installer-from-jenkins.sh b/scripts/admin/copy-windows-installer-from-jenkins.sh
+index 9c350df..597515f 100755
+--- a/scripts/admin/copy-windows-installer-from-jenkins.sh
++++ b/scripts/admin/copy-windows-installer-from-jenkins.sh
+@@ -19,7 +19,7 @@ if [ $# -ne 1 ]; then
+ fi
+ 
+ # installer-windows--${METEOR_RELEASE}--${BUILD_ID}--${BUILD_NUMBER}--${GIT_COMMIT}
+-DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!(installer-windows--.+--.+--'$1'--.+)/!')
++DIRNAME=$(aws s3 ls s3://com.meteor.jenkins/ | perl -nle 'print $1 if m!/(installer-windows--.+--.+--'$1'--.+)/!')
+ RELEASE=$(echo $DIRNAME | perl -pe 's/^installer-windows--(.+)--.+--.+--.+$/$1/')
+ 
+ if [ -z "$DIRNAME" ]; then
+diff --git a/scripts/admin/meteor-release-experimental.json b/scripts/admin/meteor-release-experimental.json
+index 625e8e3..6bcb806 100644
+--- a/scripts/admin/meteor-release-experimental.json
++++ b/scripts/admin/meteor-release-experimental.json
+@@ -1,7 +1,7 @@
+ {
+  "track": "METEOR",
+- "version": "1.0.5-rc.0",
++ "version": "1.1-rc.1",
+  "recommended": false,
+  "official": false,
+- "description": "The Official Meteor Distribution"
++ "description": "Release candidate of Meteor 1.1, the first release supported on Windows."
+ }
+diff --git a/scripts/dev-bundle-tool-package.js b/scripts/dev-bundle-tool-package.js
+index 1b0695f..cd699b8 100644
+--- a/scripts/dev-bundle-tool-package.js
++++ b/scripts/dev-bundle-tool-package.js
+@@ -28,7 +28,7 @@ var packageJson = {
+     "source-map-support": "0.2.8",
+     semver: "4.1.0",
+     request: "2.47.0",
+-    fstream: "1.0.2",
++    fstream: "https://github.com/meteor/fstream/tarball/d11b9ec4a13918447c8af7559c243c190744dd1c",
+     tar: "1.0.2",
+     kexec: "0.2.0",
+     "source-map": "0.1.40",
+diff --git a/scripts/windows/build-installer.ps1 b/scripts/windows/build-installer.ps1
+index c0edb93..8a1f803 100644
+--- a/scripts/windows/build-installer.ps1
++++ b/scripts/windows/build-installer.ps1
+@@ -16,17 +16,25 @@ echo ("Bootstrap tarball version " + $Args[0])
+ # Set the version
+ $version = $Args[0].replace("`n","").replace("`r","")
+ # Numeric part of version, like 1.2.3.4
+-$semverVersion = $version.Split("@")[-1]
++$semverVersion = $version.Split("@")[-1].split("-")[0]
+ (Get-Content ($conf_path + "_")) | Foreach-Object {
+   $_ -replace '__METEOR_RELEASE__',$version `
+      -replace '__METEOR_RELEASE_SEMVER__',$semverVersion} | Out-File -Encoding ascii ($conf_path)
+ 
++$client = new-object System.Net.WebClient
++
+ # download 7za.exe, build dependency that we don't want to build from scratch
+ echo "Downloading binary dependencies: 7za"
+ $7za_url = "https://s3.amazonaws.com/meteor-windows/build-deps/7za.exe"
+-$client = new-object System.Net.WebClient
++
+ $client.DownloadFile($7za_url, $script_path + "installer\WiXInstaller\Resources\7za.exe")
+ 
++$bootstrap_url = ("http://d3sqy0vbqsdhku.cloudfront.net/packages-bootstrap/$version/meteor-bootstrap-os.windows.x86_32.tar.gz")
++echo "Downloading bootstrap tarball from: $bootstrap_url"
++
++Import-Module BitsTransfer
++Start-BitsTransfer $bootstrap_url "$script_path\installer\WiXInstaller\Resources\meteor-bootstrap-os.windows.x86_32.tar.gz"
++
+ Push-Location installer
+ Invoke-Expression ("cmd /c build.bat")
+ Pop-Location
+diff --git a/scripts/windows/download-dev-bundle.ps1 b/scripts/windows/download-dev-bundle.ps1
+index ca5a46d..485585f 100644
+--- a/scripts/windows/download-dev-bundle.ps1
++++ b/scripts/windows/download-dev-bundle.ps1
+@@ -13,10 +13,20 @@ echo "Will get you a dev_bundle for $PLATFORM version $BUNDLE_VERSION"
+ 
+ $TARBALL="dev_bundle_${PLATFORM}_${BUNDLE_VERSION}.tar.gz"
+ 
+-
+ echo "Going to download the dependency kit from the Internet"
+ $ErrorActionPreference = "Stop"
+-$devbundle_link = "https://d3sqy0vbqsdhku.cloudfront.net/" + $TARBALL
++
++# duplicated in top-level meteor script:
++$DEV_BUNDLE_URL_ROOT="https://d3sqy0vbqsdhku.cloudfront.net/"
++# If you set $USE_TEST_DEV_BUNDLE_SERVER then we will download
++# dev bundles copied by copy-dev-bundle-from-jenkins.sh without --prod.
++# It still only does this if the version number has changed
++# (setting it won't cause it to automatically delete a prod dev bundle).
++if ("$env:USE_TEST_DEV_BUNDLE_SERVER" -ne "") {
++    $DEV_BUNDLE_URL_ROOT="https://s3.amazonaws.com/com.meteor.static/test/"
++}
++
++$devbundle_link = $DEV_BUNDLE_URL_ROOT + $TARBALL
+ $devbundle_zip = $CHECKOUT_DIR + "\" + $TARBALL
+ 
+ $webclient = New-Object System.Net.WebClient
+diff --git a/scripts/windows/installer/WiXBalExtension/wixstdba/WixStandardBootstrapperApplication.cpp b/scripts/windows/installer/WiXBalExtension/wixstdba/WixStandardBootstrapperApplication.cpp
+index 9b48285..a990461 100755
+--- a/scripts/windows/installer/WiXBalExtension/wixstdba/WixStandardBootstrapperApplication.cpp
++++ b/scripts/windows/installer/WiXBalExtension/wixstdba/WixStandardBootstrapperApplication.cpp
+@@ -29,6 +29,7 @@ static const LPCWSTR WIXSTDBA_VARIABLE_LAUNCH_HIDDEN      = L"LaunchHidden";
+ static const LPCWSTR WIXSTDBA_VARIABLE_LAUNCHAFTERINSTALL_TARGET_PATH = L"LaunchAfterInstallTarget";
+ static const LPCWSTR WIXSTDBA_VARIABLE_LAUNCHAFTERINSTALL_ARGUMENTS   = L"LaunchAfterInstallArguments";
+ 
++static const LPCWSTR WIXSTDBA_VARIABLE_VERSION = L"MeteorVersion";
+ static const LPCWSTR WIXSTDBA_VARIABLE_PROGRESS_HEADER = L"varProgressHeader";
+ static const LPCWSTR WIXSTDBA_VARIABLE_PROGRESS_INFO   = L"varProgressInfo";
+ static const LPCWSTR WIXSTDBA_VARIABLE_SUCCESS_HEADER  = L"varSuccessHeader";
+@@ -2182,6 +2183,12 @@ LExit:
+ 		LOC_STRING* pLocString = NULL;
+ 		m_state = state;
+ 
++		// If we just finished the installation, we need to broadcast an
++		// WM_SETTINGCHANGE message so that CMD picks up the new path
++		if (WIXSTDBA_STATE_APPLIED == m_state) {
++			SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, (LPARAM)L"Environment", SMTO_ABORTIFHUNG, 5000, NULL);
++		}
++
+ 		// If our install is at the end (success or failure) and we're not showing full UI or
+ 		// we successfully installed the prerequisite then exit (prompt for restart if required).
+ 		if ((WIXSTDBA_STATE_APPLIED <= m_state && BOOTSTRAPPER_DISPLAY_FULL > m_command.display) ||
+@@ -3732,11 +3739,25 @@ BOOL REST_SignInOrRegister(
+ 		StringCchPrintfW(wzFormData, BUF_LEN, L"username=%s&email=%s&password=%s", wzRegisterUserName, wzRegisterEmail, wzPassword);
+ 	}
+ 
+-	size_t   i;
+-    char *pMBFormData = (char *)malloc( BUF_LEN );
+-    wcstombs_s(&i, pMBFormData, (size_t)BUF_LEN, wzFormData, (size_t)BUF_LEN );
++  // agentInfo part of the query
++  wchar_t aiHostW[BUF_LEN] = L"";
++  DWORD aiHostSize = BUF_LEN;
++  GetComputerNameW(aiHostW, &aiHostSize);
++
++  LPWSTR aiAgentVersion = NULL;
++  BalGetStringVariable(WIXSTDBA_VARIABLE_VERSION, &aiAgentVersion);
++
++  wchar_t wzAgentInfo[BUF_LEN] = L"";
++  StringCchPrintfW(wzAgentInfo, BUF_LEN, L"agentInfo[host]=%s&agentInfo[agent]=%s&agentInfo[agentVersion]=%s&agentInfo[arch]=%s",
++      aiHostW, L"Windows Installer", aiAgentVersion, L"os.windows.x64_32");
++  StringCchCatW(wzFormData, BUF_LEN, L"&");
++  StringCchCatW(wzFormData, BUF_LEN, wzAgentInfo);
++
++  size_t i;
++  char *pMBFormData = (char *)malloc( BUF_LEN );
++  wcstombs_s(&i, pMBFormData, (size_t)BUF_LEN, wzFormData, (size_t)BUF_LEN );
+ 
+-    char *pMBDataResponse = NULL;
++  char *pMBDataResponse = NULL;
+ 	wchar_t wzErrorMessage[BUF_LEN] = L"";
+ 
+ 	char *path = fSignIn ? "/api/v1/private/login"
+diff --git a/scripts/windows/installer/WiXHelper/CustomAction.cpp b/scripts/windows/installer/WiXHelper/CustomAction.cpp
+index cd8082a..37060c7 100755
+--- a/scripts/windows/installer/WiXHelper/CustomAction.cpp
++++ b/scripts/windows/installer/WiXHelper/CustomAction.cpp
+@@ -244,61 +244,53 @@ HRESULT UnzipToFolder(
+ 	StringCchPrintf(szTarGzFilePath, BUF_LEN, L"%s%s", szSourceDir, wzTarGzFileName);
+ 	StringCchPrintf(szTarFilePath, BUF_LEN, L"%s*.tar", szSourceDir);
+ 
+-	DWORD pdwAttr;
+-	if (FileExistsEx(szTarGzFilePath, &pdwAttr) == TRUE)
+-	{
+-		//Extacting quality_cloud_production.sql to %TEMP% folder
+-		wchar_t szTmpDir[BUF_LEN] = L"";		DWORD nTmpDirLen = BUF_LEN;
+-		wchar_t sz7Zip[BUF_LEN] = L"";
++	//Extacting quality_cloud_production.sql to %TEMP% folder
++	wchar_t szTmpDir[BUF_LEN] = L"";		DWORD nTmpDirLen = BUF_LEN;
++	wchar_t sz7Zip[BUF_LEN] = L"";
++	wchar_t packedTarball[BUF_LEN] = L"";
+ 
+-		wchar_t szCommandLine1[BUF_LEN] = L"";
+-		wchar_t szCommandLine2[BUF_LEN] = L"";
++	wchar_t szCommandLine1[BUF_LEN] = L"";
++	wchar_t szCommandLine2[BUF_LEN] = L"";
+ 
+-		MsiGetProperty(hInstall, L"TempFolder", szTmpDir, &nTmpDirLen);
+-		StringCchPrintf(sz7Zip, BUF_LEN, L"%s%s", szTmpDir, L"7za.exe");
++	MsiGetProperty(hInstall, L"TempFolder", szTmpDir, &nTmpDirLen);
++	StringCchPrintf(sz7Zip, BUF_LEN, L"%s%s", szTmpDir, L"7za.exe");
++	StringCchPrintf(packedTarball, BUF_LEN, L"%s%s", szTmpDir, L"meteor-bootstrap-os.windows.x86_32.tar.gz");
+ 
+-		DWORD pdwAttr;
+-		if (FileExistsEx(sz7Zip, &pdwAttr) == FALSE)
+-		{
+-			hr = ExtractBinaryToFile(L"SevenZip", sz7Zip);
+-		}
++	DWORD pdwAttr;
+ 
+-		DWORD nRes=0;
++	hr = ExtractBinaryToFile(L"SevenZip", sz7Zip);
++	hr = ExtractBinaryToFile(L"BootstrapTarball", packedTarball);
+ 
+-		// Remove old Meteor installs
+-		wchar_t szCmdRemoveOld[BUF_LEN] = L"";
+-		wchar_t szSysDir[BUF_LEN] = L"";
+-		DWORD nSysDirLen = BUF_LEN;
+-		MsiGetProperty(hInstall, L"SystemFolder", szSysDir, &nSysDirLen);
++	DWORD nRes=0;
+ 
+-		LPTSTR ErrorMessage = NULL;
++	// Remove old Meteor installs
++	wchar_t szCmdRemoveOld[BUF_LEN] = L"";
++	wchar_t szSysDir[BUF_LEN] = L"";
++	DWORD nSysDirLen = BUF_LEN;
++	MsiGetProperty(hInstall, L"SystemFolder", szSysDir, &nSysDirLen);
+ 
+-		StringCchPrintf(szCmdRemoveOld, BUF_LEN, L"%s\\cmd.exe /C \"RD /S /Q \"%s\\.meteor\">NUL\"", szSysDir, wzDestPath);
+-		StringCchPrintf(szCommandLine1, BUF_LEN, L"\"%s\" x -o\"%s\" -y \"%s\"", sz7Zip, szSourceDir, szTarGzFilePath);
+-		StringCchPrintf(szCommandLine2, BUF_LEN, L"\"%s\" x -o\"%s\" -y \"%s\"", sz7Zip, wzDestPath, szTarFilePath);
++	LPTSTR ErrorMessage = NULL;
+ 
+-		if (! ExecuteCommandLine(szCmdRemoveOld, nRes)) {
+-			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
+-			if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Deleting old install completed with (%d): %S", nRes, ErrorMessage);
+-			return HRESULT_FROM_WIN32(nRes);
+-		}
++	StringCchPrintf(szCmdRemoveOld, BUF_LEN, L"%s\\cmd.exe /C \"RD /S /Q \"%s\\.meteor\">NUL\"", szSysDir, wzDestPath);
++	StringCchPrintf(szCommandLine1, BUF_LEN, L"\"%s\" x -o\"%s\" -y \"%s\"", sz7Zip, szSourceDir, packedTarball);
++	StringCchPrintf(szCommandLine2, BUF_LEN, L"\"%s\" x -o\"%s\" -y \"%s\"", sz7Zip, wzDestPath, szTarFilePath);
+ 
+-		if (! ExecuteCommandLine(szCommandLine1, nRes)) {
+-			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
+-			if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Archive expanding completed with (%d): %S", nRes, ErrorMessage);
+-			return HRESULT_FROM_WIN32(nRes);
+-		}
++	if (! ExecuteCommandLine(szCmdRemoveOld, nRes)) {
++		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
++		if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Deleting old install completed with (%d): %S", nRes, ErrorMessage);
++		return HRESULT_FROM_WIN32(nRes);
++	}
+ 
+-		if (! ExecuteCommandLine(szCommandLine2, nRes)) {
+-			FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
+-			if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Archive deployment completed with (%d): %S", nRes, ErrorMessage);
+-			return HRESULT_FROM_WIN32(nRes);
+-		}
++	if (! ExecuteCommandLine(szCommandLine1, nRes)) {
++		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
++		if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Archive expanding completed with (%d): %S", nRes, ErrorMessage);
++		return HRESULT_FROM_WIN32(nRes);
+ 	}
+-	else
+-	{
+-		hr = HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
+-		WcaLog(LOGMSG_STANDARD, "Failed to extract %S files. File not found: %S", wzFriendlyName, szTarGzFilePath); 
++
++	if (! ExecuteCommandLine(szCommandLine2, nRes)) {
++		FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, HRESULT_FROM_WIN32(nRes), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&ErrorMessage, 0, NULL);
++		if (NULL != ErrorMessage) WcaLog(LOGMSG_STANDARD, "Archive deployment completed with (%d): %S", nRes, ErrorMessage);
++		return HRESULT_FROM_WIN32(nRes);
+ 	}
+ 
+ 	WcaLog(LOGMSG_STANDARD, "Extracting \"%S\" package completed.", wzFriendlyName);
+diff --git a/scripts/windows/installer/WiXInstaller/Meteor_Bundle.wxs b/scripts/windows/installer/WiXInstaller/Meteor_Bundle.wxs
+index 106eb65..b99b86a 100755
+--- a/scripts/windows/installer/WiXInstaller/Meteor_Bundle.wxs
++++ b/scripts/windows/installer/WiXInstaller/Meteor_Bundle.wxs
+@@ -30,6 +30,7 @@
+ 		<Variable Name="TermsUrl" 			Type="string" Value="$(var.METEOR_TermsUrl)" />
+ 		<Variable Name="PrivacyUrl" 		Type="string" Value="$(var.METEOR_PrivacyUrl)" />
+ 
++        <Variable Name="MeteorVersion"  Type="string" Persisted="yes" Value="$(var.METEOR_Version)" Hidden="yes" />
+         <Variable Name="PerMachineInstall"  Type="numeric" Persisted="yes" Value="0" />
+         <Variable Name="PerUserInstall"     Type="numeric" Persisted="yes" Value="1" />
+         <Variable Name="CreateRButton" 		Type="numeric" Persisted="yes" Value="1" />
+diff --git a/scripts/windows/installer/WiXInstaller/Meteor_Product.wxs b/scripts/windows/installer/WiXInstaller/Meteor_Product.wxs
+index 8ee727a..3ddf8e6 100755
+--- a/scripts/windows/installer/WiXInstaller/Meteor_Product.wxs
++++ b/scripts/windows/installer/WiXInstaller/Meteor_Product.wxs
+@@ -8,7 +8,7 @@
+     <?include Configuration.wxi?>
+ 
+     <Product Id="*" Name="$(var.METEOR_ProductName)" Language="1033" Version="$(var.METEOR_Version)" Manufacturer="$(var.METEOR_Manufacturer)" UpgradeCode="$(var.METEOR_UpgradeCode)">
+-        <Package Description="This opackage will install Meteor on your computer." InstallerVersion="300" Compressed="yes" InstallScope="perUser" InstallPrivileges="limited"/>
++        <Package Description="This package will install Meteor on your computer." InstallerVersion="300" Compressed="yes" InstallScope="perUser" InstallPrivileges="limited"/>
+ 
+         <!-- This will allow a new msi package to upgrade an existing older version (in case patch is not used) -->
+         <MajorUpgrade DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit." AllowSameVersionUpgrades="yes"/>
+@@ -29,8 +29,7 @@
+         <?endif?>
+ 
+         <Binary Id="SevenZip"  SourceFile="Resources\7za.exe" />
+-
+-
++        <Binary Id="BootstrapTarball"  SourceFile="Resources\meteor-bootstrap-os.windows.x86_32.tar.gz" />
+ 
+         <Feature Id="ProductFiles" Title="Meteor Product Files" Level="1">
+             <ComponentGroupRef Id="CG_MeteorConfiguration"/>
+@@ -45,14 +44,12 @@
+         </Directory>
+ 
+ 
+-        <CustomAction Id="Download_MeteorPackage" BinaryKey="WiXHelper" Return="check" DllEntry="Download_MeteorPackage" />
+         <CustomAction Id="Extract_MeteorFiles"    BinaryKey="WiXHelper" Return="check" DllEntry="Extract_MeteorFiles" />
+         <CustomAction Id="BulkRemoveMeteorFiles"  BinaryKey="WiXHelper" Return="check" DllEntry="BulkRemoveMeteorFiles" />
+         <CustomAction Id="SetFolderPackages"  Property="METEORDIR_PACKAGES" Value="[METEOR_DIR].meteor\packages" />
+         <CustomAction Id="SetFolderPkg_Meta"  Property="METEORDIR_PKG_META" Value="[METEOR_DIR].meteor\package-metadata" />
+         <InstallExecuteSequence>
+-            <Custom Action="Download_MeteorPackage"  After="InstallFiles">NOT Installed</Custom>
+-            <Custom Action="Extract_MeteorFiles"     After="Download_MeteorPackage">NOT Installed</Custom>
++            <Custom Action="Extract_MeteorFiles"     After="InstallFiles">NOT Installed</Custom>
+             <Custom Action="SetFolderPackages"       After="InstallInitialize">REMOVE~="ALL"</Custom>
+             <Custom Action="SetFolderPkg_Meta"       After="InstallInitialize">REMOVE~="ALL"</Custom>
+             <Custom Action="BulkRemoveMeteorFiles"   Before="RemoveFiles">REMOVE~="ALL"</Custom>
+diff --git a/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.wxl b/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.wxl
+index fb6117a..c53a728 100755
+--- a/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.wxl
++++ b/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.wxl
+@@ -77,13 +77,19 @@
+     <String Id="ModifyRepairButton">&amp;Repair</String>
+     <String Id="ModifyUninstallButton">&amp;Uninstall</String>
+     <String Id="ModifyCloseButton">&amp;Close</String>
+-    <String Id="SuccessHeader">Meteor Installed</String>
++    <String Id="SuccessHeader">Meteor is now installed on your computer.</String>
+     <String Id="SuccessHeaderRepair">Repair Successful</String>
+-    <String Id="SuccessHeaderUninstall">Uninstall Successful</String>
+-    <String Id="SuccessInfo">Meteor is now installed on your computer.&#13;&#10;&#13;&#10;Open a new command prompt and run "meteor".</String>
++    <String Id="SuccessHeaderUninstall">Meteor has been uninstalled.</String>
++    <String Id="SuccessInfo">
++To get started, open a new command prompt and type "meteor". If you're running Windows 8.1, you may need to restart your machine.
++
++To learn more about Meteor, check out the &lt;a href="https://www.meteor.com/try"&gt;Meteor tutorial&lt;/a&gt; and read the &lt;a href="https://docs.meteor.com"&gt;official documentation&lt;/a&gt;. If you need help, ask a question on the official forums at &lt;a href="https://forums.meteor.com"&gt;forums.meteor.com&lt;/a&gt; or &lt;a href="https://stackoverflow.com/questions/tagged/meteor"&gt;Stack Overflow&lt;/a&gt;.
++
++Check out the &lt;a href="https://github.com/meteor/meteor/wiki/Preview-of-Meteor-on-Windows"&gt;Wiki page on GitHub&lt;/a&gt; to learn more about the Meteor Windows preview.
++    </String>
+     <String Id="SuccessErrorInfoText">Following non critical errors occured:</String>
+     <String Id="SuccessInfoRepair">Setup has finished repairing [WixBundleName] installed on your computer. The application may be launched by selecting the installed icons.</String>
+-    <String Id="SuccessInfoUninstall">[WixBundleName] was successfully removed from your computer.</String>
++    <String Id="SuccessInfoUninstall">We hope to see you again soon!</String>
+     <String Id="SuccessLaunchButton">&amp;Launch</String>
+     <String Id="SuccessRestartText">You must restart your computer before you can use the software.</String>
+     <String Id="SuccessRestartButton">&amp;Restart</String>
+diff --git a/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.xml b/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.xml
+index 349a7d9..4260c1e 100755
+--- a/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.xml
++++ b/scripts/windows/installer/WiXInstaller/Resources/Theme_Meteor.xml
+@@ -97,14 +97,8 @@ notified about critical security updates when they happen.
+ 		<Button Name="ModifyCancelButton" X="-24" Y="-10" Width="110" Height="23" TabStop="yes" FontId="0">#(loc.ModifyCloseButton)</Button>
+ 	</Page>
+ 	<Page Name="Success">
+-		<Text Name="SuccessHeader" X="24" Y="30" Width="420" Height="50" FontId="3" DisablePrefix="yes">Meteor is now installed on your computer.</Text>
+-		<Hypertext Name="SuccessInfo" X="24" Y="80" Width="-24" Height="160" FontId="1" TabStop="no" HideWhenDisabled="yes">
+-To get started, open a new command prompt and type "meteor".
+-
+-To learn more about Meteor, check out the &lt;a href="https://www.meteor.com/try"&gt;Meteor tutorial&lt;/a&gt; and read the &lt;a href="https://docs.meteor.com"&gt;official documentation&lt;/a&gt;. If you need help, ask a question on the official forums at &lt;a href="https://forums.meteor.com"&gt;forums.meteor.com&lt;/a&gt; or &lt;a href="https://stackoverflow.com/questions/tagged/meteor"&gt;Stack Overflow&lt;/a&gt;.
+-
+-Check out the &lt;a href="https://github.com/meteor/meteor/wiki/Preview-of-Meteor-on-Windows"&gt;Wiki page on GitHub&lt;/a&gt; to learn more about the Meteor Windows preview.
+-		</Hypertext>
++		<Text Name="SuccessHeader" X="24" Y="30" Width="420" Height="50" FontId="3" DisablePrefix="yes">[varSuccessHeader]</Text>
++		<Hypertext Name="SuccessInfo" X="24" Y="80" Width="-24" Height="160" FontId="1" TabStop="no" HideWhenDisabled="yes">[varSuccessInfo]</Hypertext>
+ 
+ 		<Image X="25" Y="-20" Width="127" Height="30" ImageFile="meteor-logo-sm.jpg"/>
+ 		<Button Name="SuccessCancelButton" X="-24" Y="-18" Width="110" Height="23" TabStop="yes" FontId="0">#(loc.SuccessCloseButton)</Button>
+diff --git a/tools/catalog-remote.js b/tools/catalog-remote.js
+index dfd1b53..a7ff103 100644
+--- a/tools/catalog-remote.js
++++ b/tools/catalog-remote.js
+@@ -846,6 +846,8 @@ _.extend(RemoteCatalog.prototype, {
+   getDefaultReleaseVersion: function (track) {
+     var self = this;
+     var versionRecord = self.getDefaultReleaseVersionRecord(track);
++    if (! versionRecord)
++      throw new Error("Can't get default release version for track " + track);
+     return _.pick(versionRecord, ["track", "version" ]);
+   },
+ 
+diff --git a/tools/catalog.js b/tools/catalog.js
+index 6b196b7..d808835 100644
+--- a/tools/catalog.js
++++ b/tools/catalog.js
+@@ -69,6 +69,10 @@ catalog.refreshOrWarn = function (options) {
+     // XXX is throwing correct for SQLite errors too? probably.
+ 
+     Console.warn("Unable to update package catalog (are you offline?)");
++    Console.warn();
++    Console.warn(
++      "If you are using Meteor behind a proxy, set HTTP_PROXY and HTTPS_PROXY environment variables or see this page for more details: ",
++      Console.url("https://github.com/meteor/meteor/wiki/Using-Meteor-behind-a-proxy"));
+ 
+     // XXX: Make this Console.debug(err)
+     if (Console.isDebugEnabled()) {
+diff --git a/tools/commands-packages.js b/tools/commands-packages.js
+index fb0f5bd..22201dd 100644
+--- a/tools/commands-packages.js
++++ b/tools/commands-packages.js
+@@ -261,7 +261,8 @@ main.registerCommand({
+   requiresPackage: true,
+   // We optimize the workflow by using up-to-date package data to weed out
+   // obviously incorrect submissions before they ever hit the wire.
+-  catalogRefresh: new catalog.Refresh.OnceAtStart({ ignoreErrors: false })
++  catalogRefresh: new catalog.Refresh.OnceAtStart({ ignoreErrors: false }),
++  'allow-incompatible-update': { type: Boolean }
+ }, function (options) {
+   if (options.create && options['existing-version']) {
+     // Make up your mind!
+@@ -298,7 +299,8 @@ main.registerCommand({
+       alwaysWritePackageMap: true,
+       // When we publish, we should always include web.cordova unibuilds, even
+       // though this temporary directory does not have any cordova platforms
+-      forceIncludeCordovaUnibuild: true
++      forceIncludeCordovaUnibuild: true,
++      allowIncompatibleUpdate: options['allow-incompatible-update']
+     });
+   } else {
+     // We're in an app; let the app be our context, but make sure we don't
+@@ -311,7 +313,8 @@ main.registerCommand({
+       neverWritePackageMap: true,
+       // When we publish, we should always include web.cordova unibuilds, even
+       // if this project does not have any cordova platforms
+-      forceIncludeCordovaUnibuild: true
++      forceIncludeCordovaUnibuild: true,
++      allowIncompatibleUpdate: options['allow-incompatible-update']
+     });
+   }
+ 
+@@ -457,8 +460,9 @@ main.registerCommand({
+     // Normal publish flow. Tell the user nicely.
+     Console.warn();
+     Console.warn(
+-      "This package contains binary code and must be built on",
+-      "multiple architectures.");
++      "You're not done publishing yet! This package contains binary code and",
++      "must be built on all of Meteor's architectures, including this",
++      "machine's architecture.");
+     Console.warn();
+     Console.info(
+       "You can access Meteor provided build machines, pre-configured to",
+@@ -500,7 +504,11 @@ main.registerCommand({
+   name: 'publish-for-arch',
+   minArgs: 1,
+   maxArgs: 1,
+-  catalogRefresh: new catalog.Refresh.OnceAtStart({ ignoreErrors: false })
++  catalogRefresh: new catalog.Refresh.OnceAtStart({ ignoreErrors: false }),
++  // in theory, this option shouldn't be necessary, because when you run
++  // publish-for-arch you want to reproduce the exact same setup as when
++  // you ran 'publish', but support the option in case it comes up.
++  'allow-incompatible-update': { type: Boolean }
+ }, function (options) {
+   // argument processing
+   var all = options.args[0].split('@');
+@@ -629,7 +637,8 @@ main.registerCommand({
+     explicitlyAddedLocalPackageDirs: [packageDir],
+     // When we publish, we should always include web.cordova unibuilds, even
+     // though this temporary directory does not have any cordova platforms
+-    forceIncludeCordovaUnibuild: true
++    forceIncludeCordovaUnibuild: true,
++    allowIncompatibleUpdate: options['allow-incompatible-update']
+   });
+   // Just get up to initializing the catalog. We're going to mutate the
+   // constraints file a bit before we prepare the build.
+@@ -1612,10 +1621,12 @@ main.registerCommand({
+   minArgs: 1,
+   maxArgs: 1,
+   requiresApp: true,
+-  catalogRefresh: new catalog.Refresh.Never()
++  catalogRefresh: new catalog.Refresh.Never(),
++  'allow-incompatible-update': { type: Boolean }
+ }, function (options) {
+   var projectContext = new projectContextModule.ProjectContext({
+-    projectDir: options.appDir
++    projectDir: options.appDir,
++    allowIncompatibleUpdate: options['allow-incompatible-update']
+   });
+   main.captureAndExit("=> Errors while initializing project:", function () {
+     projectContext.prepareProjectForBuild();
+@@ -1647,6 +1658,19 @@ main.registerCommand({
+ });
+ 
+ ///////////////////////////////////////////////////////////////////////////////
++// admin wipe-all-packages
++///////////////////////////////////////////////////////////////////////////////
++
++// For testing wipeAllPackages during development
++main.registerCommand({
++  name: 'admin wipe-all-packages',
++  hidden: true,
++  catalogRefresh: new catalog.Refresh.Never()
++}, function (options) {
++  tropohouse.default.wipeAllPackages();
++});
++
++///////////////////////////////////////////////////////////////////////////////
+ // admin check-package-versions
+ ///////////////////////////////////////////////////////////////////////////////
+ 
+diff --git a/tools/commands.js b/tools/commands.js
+index a9c9012..48d1f03 100644
+--- a/tools/commands.js
++++ b/tools/commands.js
+@@ -676,7 +676,10 @@ main.registerCommand({
+   var projectContext = new projectContextModule.ProjectContext({
+     projectDir: appPath,
+     // Write .meteor/versions even if --release is specified.
+-    alwaysWritePackageMap: true
++    alwaysWritePackageMap: true,
++    // examples come with a .meteor/versions file, but we shouldn't take it
++    // too seriously
++    allowIncompatibleUpdate: true
+   });
+ 
+   main.captureAndExit("=> Errors while creating your project", function () {
+@@ -1063,7 +1066,6 @@ main.registerCommand({
+ 
+   // XXX detect the case where Meteor is running the app, but
+   // MONGO_URL was set, so we don't see a Mongo process
+-
+   var findMongoPort = require('./run-mongo.js').findMongoPort;
+   var isRunning = !! findMongoPort(options.appDir);
+   if (isRunning) {
+@@ -1329,7 +1331,11 @@ main.registerCommand({
+     ios: { type: Boolean },
+     'ios-device': { type: Boolean },
+     android: { type: Boolean },
+-    'android-device': { type: Boolean }
++    'android-device': { type: Boolean },
++
++    // This could theoretically be useful/necessary in conjunction with
++    // --test-app-path.
++    'allow-incompatible-update': { type: Boolean }
+   },
+   catalogRefresh: new catalog.Refresh.Never()
+ }, function (options) {
+@@ -1389,7 +1395,8 @@ main.registerCommand({
+     // packages subdirectory, not the test runner app's empty one.
+     projectDirForLocalPackages: options.appDir,
+     explicitlyAddedLocalPackageDirs: packagesByPath,
+-    serverArchitectures: serverArchitectures
++    serverArchitectures: serverArchitectures,
++    allowIncompatibleUpdate: options['allow-incompatible-update']
+   });
+ 
+   main.captureAndExit("=> Errors while setting up tests:", function () {
+@@ -1603,12 +1610,14 @@ main.registerCommand({
+   maxArgs: Infinity,
+   hidden: true,
+   requiresApp: true,
+-  catalogRefresh: new catalog.Refresh.Never()
++  catalogRefresh: new catalog.Refresh.Never(),
++  'allow-incompatible-update': { type: Boolean }
+ }, function (options) {
+   var projectContextModule = require('./project-context.js');
+   var projectContext = new projectContextModule.ProjectContext({
+     projectDir: options.appDir,
+-    forceRebuildPackages: options.args.length ? options.args : true
++    forceRebuildPackages: options.args.length ? options.args : true,
++    allowIncompatibleUpdate: options['allow-incompatible-update']
+   });
+ 
+   main.captureAndExit("=> Errors while rebuilding packages:", function () {
+@@ -2039,6 +2048,20 @@ main.registerCommand({
+     "ssh", connOptions,
+     { stdio: 'inherit' }); // Redirect spawn stdio to process
+ 
++  sshCommand.on('error', function (err) {
++    if (err.code === "ENOENT") {
++      if (process.platform === "win32") {
++        Console.error("Could not find the `ssh` command in your PATH.",
++          "Please read this page about using the get-machine command on Windows:",
++          Console.url("https://github.com/meteor/meteor/wiki/Accessing-Meteor-provided-build-machines-from-Windows"));
++      } else {
++        Console.error("Could not find the `ssh` command in your PATH.");
++      }
++
++      future.return(1);
++    }
++  });
++
+   sshCommand.on('exit', function (code, signal) {
+     if (signal) {
+       // XXX: We should process the signal in some way, but I am not sure we
+@@ -2049,10 +2072,7 @@ main.registerCommand({
+     }
+   });
+   var sshEnd = future.wait();
+-  maybeLog("Removing hostkey at " + hostpath);
+-  files.unlink(hostpath);
+-  maybeLog("Removing sshkey at " + idpath);
+-  files.unlink(idpath);
++
+   return sshEnd;
+ });
+ 
+diff --git a/tools/compiler.js b/tools/compiler.js
+index 13cc476..e979198 100644
+--- a/tools/compiler.js
++++ b/tools/compiler.js
+@@ -349,7 +349,17 @@ var compileUnibuild = function (options) {
+     Console.nudge(true);
+ 
+     if (contents === null) {
+-      buildmessage.error("File not found: " + source.relPath);
++      // It really sucks to put this check here, since this isn't publish
++      // code...
++      if (source.relPath.match(/:/)) {
++        buildmessage.error(
++          "Couldn't build this package on Windows due to the following file " +
++          "with a colon -- " + source.relPath + ". Please rename and " +
++          "and re-publish the package.");
++      } else {
++        buildmessage.error("File not found: " + source.relPath);
++      }
++
+       // recover by ignoring
+       return;
+     }
+diff --git a/tools/files.js b/tools/files.js
+index 19a9698..a5cb18f 100644
+--- a/tools/files.js
++++ b/tools/files.js
+@@ -738,17 +738,6 @@ files.createTarGzStream = function (dirPath, options) {
+         return true;
+       }
+ 
+-      // Error about long paths on Windows.
+-      // As far as we know the tarball creation seems to fail silently when path
+-      // is too long (the files don't get copied to tarball). To avoid it, we
+-      // shout at the core developer early so she/he takes an action.
+-      // When the tarball is created on Mac or Linux it doesn't seem to matter.
+-      var maxPath = 260; // Longest allowed path length on Windows
+-      if (entry.path.length > maxPath) {
+-        throw new Error("Path too long: " + entry.path + " is " +
+-          entry.path.length + " characters.");
+-      }
+-
+       // Refuse to create a directory that isn't listable. Tarballs
+       // created on Windows will have non-executable directories (since
+       // executable isn't a thing in Windows directory permissions), and
+@@ -1192,6 +1181,10 @@ files._generateScriptLinkToMeteorScript = function (scriptLocation) {
+     // called on Linux or Mac when we are building bootstrap tarballs
+     "\"" + scriptLocationConverted + "\" %*",
+     "ENDLOCAL",
++
++    // always exit with the same exit code as the child script
++    "EXIT /b %ERRORLEVEL%",
++
+     // add a comment with the destination of the link, so it can be read later
+     // by files.readLinkToMeteorScript
+     "rem " + scriptLocationConverted,
+@@ -1205,12 +1198,18 @@ files._getLocationFromScriptLinkToMeteorScript = function (script) {
+ 
+   var scriptLocation = _.last(lines)
+     .replace(/^rem /g, '');
++  var isAbsolute = true;
++
++  if (scriptLocation.match(/^%~dp0/)) {
++    isAbsolute = false;
++    scriptLocation = scriptLocation.replace(/^%~dp0\\?/g, '');
++  }
+ 
+   if (! scriptLocation) {
+     throw new Error('Failed to parse script location from meteor.bat');
+   }
+ 
+-  return files.convertToPosixPath(scriptLocation);
++  return files.convertToPosixPath(scriptLocation, ! isAbsolute);
+ };
+ 
+ files.linkToMeteorScript = function (scriptLocation, linkLocation, platform) {
+diff --git a/tools/help.txt b/tools/help.txt
+index 8910247..bb81292 100644
+--- a/tools/help.txt
++++ b/tools/help.txt
+@@ -654,6 +654,10 @@ Pass --create to create a new package.
+ Options:
+   --create   publish a new package
+   --update   changed metadata of a previously published version
++  --allow-incompatible-update   Allow packages in your project to be upgraded or
++             downgraded to versions that are potentially incompatible with the
++             current versions, if required to satisfy all package version
++             constraints.
+ 
+ 
+ >>> publish-for-arch
+diff --git a/tools/main.js b/tools/main.js
+index cbeeaf3..5d7762b 100644
+--- a/tools/main.js
++++ b/tools/main.js
+@@ -937,6 +937,10 @@ Fiber(function () {
+               // Warn if we didn't already warn.
+               Console.warn(
+                 "Unable to contact release server (are you offline?)");
++              Console.warn();
++              Console.warn(
++                "If you are using Meteor behind a proxy, set HTTP_PROXY and HTTPS_PROXY environment variables or see this page for more details: ",
++                Console.url("https://github.com/meteor/meteor/wiki/Using-Meteor-behind-a-proxy"));
+             }
+             // Treat this like a failure to refresh the catalog
+             // (map the old world to the new world)
+diff --git a/tools/meteor-npm.js b/tools/meteor-npm.js
+index 696e437..96f6995 100644
+--- a/tools/meteor-npm.js
++++ b/tools/meteor-npm.js
+@@ -339,12 +339,16 @@ var currentNodeCompatibilityVersion = function () {
+ 
+ var runNpmCommand = function (args, cwd) {
+   var npmPath;
++  var nodeBinDir;
+ 
+   if (os.platform() === "win32") {
+     npmPath = files.convertToOSPath(
+       files.pathJoin(files.getDevBundle(), "bin", "npm.cmd"));
++    nodeBinDir = files.convertToOSPath(
++      files.pathJoin(files.getDevBundle(), "bin"));
+   } else {
+     npmPath = files.pathJoin(files.getDevBundle(), "bin", "npm");
++    nodeBinDir = files.pathJoin(files.getDevBundle(), "bin");
+   }
+ 
+   if (meteorNpm._printNpmCalls) // only used by test-bundler.js
+@@ -354,10 +358,24 @@ var runNpmCommand = function (args, cwd) {
+   if (cwd)
+     cwd = files.convertToOSPath(cwd);
+ 
++  var env = process.env;
++  // It looks like some npm commands (such as build commands, specifically on
++  // Windows) rely on having a global node binary present.
++  // Sometimes users have a global node installed, so it is not
++  // a problem, but a) it can be outdated and b) it can not be installed.
++  // To solve this problem, we set the PATH env variable to have the path
++  // containing the node binary we are running in right now as the highest
++  // priority.
++  // This hack is confusing as npm is supposed to do it already.
++  var pathDecomposed = (env.PATH || "").split(files.pathOsDelimiter);
++  pathDecomposed.unshift(nodeBinDir);
++  env.PATH = pathDecomposed.join(files.pathOsDelimiter);
++  var opts = { cwd: cwd, env: env, maxBuffer: 10 * 1024 * 1024 };
++
+   var future = new Future;
+   var child_process = require('child_process');
+   child_process.execFile(
+-    npmPath, args, { cwd: cwd, maxBuffer: 10 * 1024 * 1024 }, function (err, stdout, stderr) {
++    npmPath, args, opts, function (err, stdout, stderr) {
+     if (meteorNpm._printNpmCalls)
+       process.stdout.write(err ? 'failed\n' : 'done\n');
+ 
+diff --git a/tools/package-client.js b/tools/package-client.js
+index 552a440..12c39b2 100644
+--- a/tools/package-client.js
++++ b/tools/package-client.js
+@@ -328,8 +328,7 @@ var uploadFile = function (putUrl, filepath) {
+       bodyStreamLength: size
+     });
+   } catch (err) {
+-    // XXX: getUrl's error handling is terrible and we should fix it there.
+-    buildmessage.error(typeof err === "string" ? err : err.error.toString());
++    buildmessage.error(err.error.toString());
+     return false;
+   } finally {
+     rs.close();
+diff --git a/tools/run-mongo.js b/tools/run-mongo.js
+index 0bdb96e..45296d1 100644
+--- a/tools/run-mongo.js
++++ b/tools/run-mongo.js
+@@ -185,6 +185,47 @@ var findMongoPort = function (appDir) {
+   return pids[0].port;
+ };
+ 
++// XXX actually -- the code below is probably more correct than the code we
++// have above for non-Windows platforms (since that code relies on
++// `findMongoPids`). But changing this a few days before the 1.1 release
++// seemed too bold. But if you're changing code around here, consider using
++// the implementation below on non-Windows platforms as well.
++if (process.platform === 'win32') {
++  // On Windows, finding the Mongo pid, checking it and extracting the port
++  // is often unreliable (XXX reliable in what specific way?). There is an
++  // easier way to find the port of running Mongo: look it up in a METEOR-
++  // PORT file that we generate when running. This may result into problems
++  // where we try to connect to a mongod that is not running, or a wrong
++  // mongod if our current app is not running but there is a left-over file
++  // lying around. This still can be better than always failing to connect.
++  findMongoPort = function (appDir) {
++    var mongoPort = null;
++
++    var portFile = files.pathJoin(appDir, '.meteor/local/db/METEOR-PORT');
++    if (files.exists(portFile)) {
++      mongoPort = files.readFile(portFile, 'utf8').replace(/\s/g, '');
++    }
++
++    // Now, check if there really is a Mongo server running on this port.
++    // (The METEOR-PORT file may point to an old Mongo server that's now
++    // stopped)
++    var net = require('net');
++    var mongoTestConnectFuture = new Future;
++    var client = net.connect({port: mongoPort}, function() {
++      // The server is running.
++      client.end();
++      mongoTestConnectFuture.return();
++    });
++    client.on('error', function () {
++      mongoPort = null;
++      mongoTestConnectFuture.return();
++    });
++    mongoTestConnectFuture.wait();
++
++    return mongoPort;
++  }
++}
++
+ 
+ // Kill any mongos running on 'port'. Yields, and returns once they
+ // are all dead. Throws an exception on failure.
+diff --git a/tools/run-velocity.js b/tools/run-velocity.js
+index d31902f..e787715 100644
+--- a/tools/run-velocity.js
++++ b/tools/run-velocity.js
+@@ -24,8 +24,6 @@ var runVelocity = function (url) {
+ 
+   // All running browser processes that visit the mirror pages
+   var browserProcesses = [];
+-  // Maps mirror id to url
+-  var mirrorUrls = {};
+   var ddpConnection = DDP.connect(url);
+ 
+   var killBrowserProcesses = function () {
+@@ -131,50 +129,13 @@ var runVelocity = function (url) {
+         }, onReady: function () {
+           this.connection.registerStore("velocityMirrors", {
+             update: function (msg) {
+-              if (isMirrorUrlMessage(msg)) {
+-                mirrorUrls[msg.id] = generateMirrorUrl(
+-                  msg.fields.rootUrl,
+-                  msg.fields.rootUrlPath
+-                );
+-              }
+-              if (isMirrorReadyMessage(msg)) {
+-                var mirrorUrl = mirrorUrls[msg.id];
+-                if (mirrorUrl) {
+-                  visitWithPhantom(mirrorUrl);
+-                } else {
+-                  Console.error(
+-                    "Could not find URL of mirror " +
+-                    "with the MongoDB ID " + msg.id
+-                  );
+-                }
++              if (msg.msg === "added") {
++                visitWithPhantom(msg.fields.rootUrl);
+               }
+             }
+           });
+         }
+       });
+-
+-      function isUpdateMessage(msg) {
+-        return msg.msg === "added" || msg.msg === "changed";
+-      }
+-
+-      function isMirrorUrlMessage(msg) {
+-        return isUpdateMessage(msg) && msg.fields.rootUrl;
+-      }
+-
+-      function isMirrorReadyMessage(msg) {
+-        return isUpdateMessage(msg) && msg.fields.state === "ready";
+-      }
+-
+-      function generateMirrorUrl(rootUrl, rootUrlPath) {
+-        var mirrorUrl = rootUrl;
+-        // Handle the breaking change in velocity:core 0.5
+-        // See: https://github.com/meteor-velocity/velocity/issues/260
+-        if (rootUrlPath && mirrorUrl.indexOf(rootUrlPath) === -1) {
+-          mirrorUrl += rootUrlPath;
+-        }
+-
+-        return mirrorUrl;
+-      }
+     }
+   }, 2000);
+ };
+diff --git a/tools/selftest.js b/tools/selftest.js
+index 65992fb..33bce65 100644
+--- a/tools/selftest.js
++++ b/tools/selftest.js
+@@ -841,8 +841,7 @@ _.extend(Sandbox.prototype, {
+         orderKey: releaseName,
+         description: "test release " + releaseName,
+         recommended: !!configuration.recommended,
+-        // XXX support multiple tools packages for springboard tests
+-        tool: "meteor-tool@" + toolPackageVersion,
++        tool: configuration.tool || "meteor-tool@" + toolPackageVersion,
+         packages: packageVersions
+       });
+     });
+diff --git a/tools/server/mini-files.js b/tools/server/mini-files.js
+index 6c2ad52..46aa74b 100644
+--- a/tools/server/mini-files.js
++++ b/tools/server/mini-files.js
+@@ -63,7 +63,9 @@ var convertToOSLineEndings = function (fileContents) {
+ };
+ 
+ var convertToStandardLineEndings = function (fileContents) {
+-  return fileContents.replace(new RegExp(os.EOL, "g"), "\n");
++  // Convert all kinds of end-of-line chars to linuxy "\n".
++  return fileContents.replace(new RegExp("\r\n", "g"), "\n")
++                     .replace(new RegExp("\r", "g"), "\n");
+ };
+ 
+ 
+@@ -95,6 +97,7 @@ files.pathBasename = wrapPathFunction("basename");
+ files.pathExtname = wrapPathFunction("extname");
+ files.pathSep = '/';
+ files.pathDelimiter = ':';
++files.pathOsDelimiter = path.delimiter;
+ 
+ files.convertToStandardPath = convertToStandardPath;
+ files.convertToOSPath = convertToOSPath;
+diff --git a/tools/server/shell-server.js b/tools/server/shell-server.js
+index 0f4c9bd..dda2fe5 100644
+--- a/tools/server/shell-server.js
++++ b/tools/server/shell-server.js
+@@ -6,7 +6,6 @@ var net = require("net");
+ var tty = require("tty");
+ var vm = require("vm");
+ var Fiber = require("fibers");
+-var EOL = require("os").EOL;
+ var _ = require("underscore");
+ var INFO_FILE_MODE = 0600; // Only the owner can read or write.
+ var EXITING_MESSAGE =
+@@ -262,7 +261,7 @@ Sp.initializeHistory = function initializeHistory() {
+   var rli = self.repl.rli;
+   var historyFile = getHistoryFile(self.shellDir);
+   var historyFd = fs.openSync(historyFile, "a+");
+-  var historyLines = fs.readFileSync(historyFile, "utf8").split(EOL);
++  var historyLines = fs.readFileSync(historyFile, "utf8").split("\n");
+   var seenLines = Object.create(null);
+ 
+   if (! rli.history) {
+diff --git a/tools/tests/meteor-script-link-tests.js b/tools/tests/meteor-script-link-tests.js
+index fecc667..1b25005 100644
+--- a/tools/tests/meteor-script-link-tests.js
++++ b/tools/tests/meteor-script-link-tests.js
+@@ -9,3 +9,12 @@ selftest.define("linking to meteor script works correctly on Windows", function
+   selftest.expectEqual(parsedLocation, location);
+ });
+ 
++selftest.define("linking to meteor script works correctly on Windows not absolute", function () {
++  var location =
++    'some obscure/location/on disk/with some unicode/Вот тебе и юникод/';
++  var script = files._generateScriptLinkToMeteorScript(location);
++  var parsedLocation = files._getLocationFromScriptLinkToMeteorScript(script);
++  selftest.expectEqual(parsedLocation, location);
++});
++
++
+diff --git a/tools/tests/tarball.js b/tools/tests/tarball.js
+new file mode 100644
+index 0000000..47bd2a5
+--- /dev/null
++++ b/tools/tests/tarball.js
+@@ -0,0 +1,30 @@
++var selftest = require('../selftest.js');
++var files = require('../files.js');
++var expectEqual = selftest.expectEqual;
++
++selftest.define("create and extract tarball with long paths", function () {
++  var STAMP = "stamp";
++
++  // Create a directory with a single file in a long subdirectory, to
++  // be turned into a tarball.
++  var tarballInputDir = files.mkdtemp("tarball-input");
++  var longDir = tarballInputDir;
++  while (longDir.length < 300) {
++    longDir = files.pathJoin(longDir, "subdirectory");
++  }
++  files.mkdir_p(longDir);
++  var inputStampedFile = files.pathJoin(longDir, "file");
++  files.writeFile(inputStampedFile, STAMP);
++
++  // Make the tarball
++  var tarballOutputDir = files.mkdtemp("tarball");
++  var tarballOutputFile = files.pathJoin(tarballOutputDir, "out.tar.gz");
++  files.createTarball(tarballInputDir, tarballOutputFile);
++
++  // Extract the tarball and verify that the single file we created is
++  // present with the expected contents.
++  var tarballExtractedDir = files.mkdtemp("tarball-extracted");
++  files.extractTarGz(files.readFile(tarballOutputFile), tarballExtractedDir);
++  var extractedStampedFile = inputStampedFile.replace(tarballInputDir, tarballExtractedDir);
++  expectEqual(files.readFile(extractedStampedFile, "utf-8"), STAMP);
++});
+diff --git a/tools/tests/wipe-all-packages.js b/tools/tests/wipe-all-packages.js
+new file mode 100644
+index 0000000..94d777c
+--- /dev/null
++++ b/tools/tests/wipe-all-packages.js
+@@ -0,0 +1,149 @@
++var selftest = require('../selftest.js');
++var Sandbox = selftest.Sandbox;
++var files = require("../files.js");
++var utils = require("../utils.js");
++var archinfo = require("../archinfo.js");
++var _ = require('underscore');
++
++selftest.define("wipe all packages", function () {
++  var s = new Sandbox({
++    warehouse: {
++      v1: { tool: "meteor-tool@33.0.1", recommended: true },
++      v2: { tool: "meteor-tool@33.0.2", recommended: true },
++      v3: { tool: "meteor-tool@33.0.3", recommended: true }
++    }
++  });
++  var meteorToolVersion = function (v) {
++    return {
++      _id: 'VID' + v.replace(/\./g, ''),
++      packageName: 'meteor-tool',
++      testName: null,
++      version: v,
++      publishedBy: null,
++      description: 'The Meteor command-line tool',
++      git: undefined,
++      dependencies: { meteor: { constraint: null, references: [{ arch: 'os' }, { arch: 'web.browser' }, { arch: 'web.cordova' }] } },
++      source: null,
++      lastUpdated: null,
++      published: null,
++      isTest: false,
++      debugOnly: false,
++      containsPlugins: false
++    };
++  };
++  var meteorToolBuild = function (v) {
++    return {
++      buildArchitectures: archinfo.host(),
++      versionId: 'VID' + v.replace(/\./g, ''),
++      _id: utils.randomToken()
++    };
++  };
++
++  // insert the new tool versions into the catalog
++  s.warehouseOfficialCatalog.insertData({
++    syncToken: {},
++    formatVersion: "1.0",
++    collections: {
++      packages: [],
++      versions: [meteorToolVersion('33.0.1'), meteorToolVersion('33.0.2'), meteorToolVersion('33.0.3')],
++      builds: [meteorToolBuild('33.0.1'), meteorToolBuild('33.0.2'), meteorToolBuild('33.0.3')],
++      releaseTracks: [],
++      releaseVersions: []
++    }
++  });
++
++  // help warehouse faking by copying the meteor-tool 3 times and introducing 3
++  // fake versions (identical in code to the one we are running)
++  var latestMeteorToolVersion =
++    files.readLinkToMeteorScript(files.pathJoin(s.warehouse, 'meteor')).split('/');
++  latestMeteorToolVersion = latestMeteorToolVersion[latestMeteorToolVersion.length - 3];
++
++  var prefix = files.pathJoin(s.warehouse, 'packages', 'meteor-tool');
++  var copyTool = function (srcVersion, dstVersion) {
++    if (process.platform === 'win32') {
++      // just copy the files
++      files.cp_r(
++        files.pathJoin(prefix, srcVersion),
++        files.pathJoin(prefix, dstVersion), {
++          preserveSymlinks: true
++        });
++    } else {
++      // figure out what the symlink links to and copy the folder *and* the
++      // symlink
++      var srcFullVersion = files.readlink(files.pathJoin(prefix, srcVersion));
++      var dstFullVersion = srcFullVersion.replace(srcVersion, dstVersion);
++
++      // copy the hidden folder
++      files.cp_r(
++        files.pathJoin(prefix, srcFullVersion),
++        files.pathJoin(prefix, dstFullVersion), {
++          preserveSymlinks: true
++        });
++
++      // link to it
++      files.symlink(
++        dstFullVersion,
++        files.pathJoin(prefix, dstVersion));
++    }
++
++    var replaceVersionInFile = function (filename) {
++      var filePath = files.pathJoin(prefix, dstVersion, filename);
++      files.writeFile(
++        filePath,
++        files.readFile(filePath, 'utf8')
++          .replace(new RegExp(srcVersion, 'g'), dstVersion));
++    };
++
++    // "fix" the isopack.json and unibuild.json files (they contain the versions)
++    replaceVersionInFile('isopack.json');
++    replaceVersionInFile('unipackage.json');
++  };
++
++  copyTool(latestMeteorToolVersion, '33.0.3');
++  copyTool(latestMeteorToolVersion, '33.0.2');
++  copyTool(latestMeteorToolVersion, '33.0.1');
++
++  // since the warehouse faking system is weak and under-developed, add more
++  // faking, such as making the v3 the latest version
++  files.linkToMeteorScript(
++    files.pathJoin('packages', 'meteor-tool', '33.0.3', 'mt-' + archinfo.host(), 'meteor'),
++    files.pathJoin(s.warehouse, 'meteor'));
++
++
++  var run;
++
++  run = s.run('--release', 'v1', 'admin', 'wipe-all-packages');
++  run.waitSecs(15);
++  run.expectExit(0);
++
++  // OK, wiped all packages, now let's go and check that everything is removed
++  // except for the tool we are running right now and the latest tool. i.e. v1
++  // and v3
++  var notHidden = function (f) { return f[0] !== '.'; };
++  var meteorToolDirs = _.filter(files.readdir(prefix), notHidden);
++  selftest.expectTrue(meteorToolDirs.length === 2);
++  _.each(meteorToolDirs, function (f) {
++    var fPath = files.pathJoin(prefix, f);
++    if (process.platform === 'win32') {
++      // this is a dir
++      selftest.expectTrue(files.lstat(fPath).isDirectory());
++    } else {
++      // this is a symlink to a dir and this dir exists
++      selftest.expectTrue(files.lstat(fPath).isSymbolicLink());
++      selftest.expectTrue(files.exists(files.pathJoin(prefix, files.readlink(fPath))));
++    }
++
++    // check that the version is either the running one, or the latest one
++    selftest.expectTrue(_.contains(['33.0.1', '33.0.3'], f));
++  });
++
++  // Check that all other packages are wiped
++  _.each(files.readdir(files.pathJoin(s.warehouse, 'packages')), function (p) {
++    if (p[0] === '.') return;
++    if (p === 'meteor-tool') return;
++    var contents = files.readdir(files.pathJoin(s.warehouse, 'packages', p));
++    contents = _.filter(contents, notHidden);
++    selftest.expectTrue(contents.length === 0);
++  });
++});
++
+diff --git a/tools/tropohouse.js b/tools/tropohouse.js
+index 10cd896..b7ab202 100644
+--- a/tools/tropohouse.js
++++ b/tools/tropohouse.js
+@@ -181,17 +181,25 @@ _.extend(exports.Tropohouse.prototype, {
+     if (!files.inCheckout()) {
+       // toolsDir is something like:
+       // /home/user/.meteor/packages/meteor-tool/.1.0.17.ut200e++os.osx.x86_64+web.browser+web.cordova/meteor-tool-os.osx.x86_64
++      // or /C/Users/user/AppData/Local/Temp/mt-17618kk/tropohouse/packages/meteor-tool/33.0.1/mt-os.windows.x86_32 on Windows
+       var toolsDir = files.getCurrentToolsDir();
+       // eg, 'meteor-tool'
+       currentToolPackageEscaped =
+         files.pathBasename(files.pathDirname(files.pathDirname(toolsDir)));
+-      // eg, '.1.0.17-xyz1.2.ut200e++os.osx.x86_64+web.browser+web.cordova'
++      // eg, '.1.0.17-xyz1.2.ut200e++os.osx.x86_64+web.browser+web.cordova' on Unix
++      // or '33.0.1' on Windows
+       var toolVersionDir = files.pathBasename(files.pathDirname(toolsDir));
+-      var toolVersionWithDotAndRandomBit = toolVersionDir.split('++')[0];
+-      var pieces = toolVersionWithDotAndRandomBit.split('.');
+-      pieces.shift();
+-      pieces.pop();
+-      currentToolVersion = pieces.join('.');
++
++      if (process.platform !== 'win32') {
++        var toolVersionWithDotAndRandomBit = toolVersionDir.split('++')[0];
++        var pieces = toolVersionWithDotAndRandomBit.split('.');
++        pieces.shift();
++        pieces.pop();
++        currentToolVersion = pieces.join('.');
++      } else {
++        currentToolVersion = toolVersionDir;
++      }
++
+       var latestMeteorSymlink = self.latestMeteorSymlink();
+       if (utils.startsWith(latestMeteorSymlink,
+                            packagesDirectoryName + files.pathSep)) {
+@@ -325,7 +333,6 @@ _.extend(exports.Tropohouse.prototype, {
+     var self = this;
+ 
+     if (self.platform === "win32") {
+-      // XXX wipeAllPackages won't work on Windows until we fix that function
+       isopack.saveToPath(self.packagePath(packageName, isopack.version));
+     } else {
+       // Note: wipeAllPackages depends on this filename structure
+@@ -396,7 +403,9 @@ _.extend(exports.Tropohouse.prototype, {
+       packageName, version, archesToDownload);
+     if (! buildsToDownload) {
+       buildmessage.error(
+-        "No compatible build found", {tags: { refreshCouldHelp: true }});
++        "No compatible binary build found for this package. " +
++        "Contact the package author and ask them to publish it " +
++        "for your platform.", {tags: { refreshCouldHelp: true }});
+       return null;
+     }
+ 

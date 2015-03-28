@@ -1,0 +1,56 @@
+<head>
+  <title>app</title>
+</head>
+
+<body>
+  {{> diff}}
+</body>
+
+<template name="diff">
+  {{#each diff}}
+    {{! data context is file}}
+    <h4>{{filename}}</h4>
+
+    {{#each chunks}}
+      <div class="row">
+        <div class="col-xs-6">
+          {{#if $eq "unchanged" type}}
+            {{#each lines}}
+              <div class="line">{{this}}</div>
+            {{/each}}
+          {{/if}}
+
+          {{#if $eq "remove" type}}
+            {{#each lines}}
+              <div class="line remove">{{this}}</div>
+            {{/each}}
+          {{/if}}
+
+          {{#if $eq "skip" type}}
+            {{#each lines}}
+              <div class="line skip">{{this}}</div>
+            {{/each}}
+          {{/if}}
+        </div>
+        <div class="col-xs-6">
+          {{#if $eq "unchanged" type}}
+            {{#each lines}}
+              <div class="line">{{this}}</div>
+            {{/each}}
+          {{/if}}
+
+          {{#if $eq "add" type}}
+            {{#each lines}}
+              <div class="line add">{{this}}</div>
+            {{/each}}
+          {{/if}}
+        </div>
+      </div>
+    {{/each}}
+  {{/each}}
+
+  <div class="row">
+    <div class="col-xs-6">old</div>
+    <div class="col-xs-6">new</div>
+  </div>
+</template>
